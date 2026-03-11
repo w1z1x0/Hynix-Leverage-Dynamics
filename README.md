@@ -54,25 +54,4 @@ cd "Hynix Leverage Dynamics"
 python3 -m http.server 8080
 ```
 
-浏览器访问：`http://localhost:8080`
-
-## 发布到 GitHub + GitHub Pages
-
-假设你要把本目录内容发布到新仓库：
-
-```bash
-cd "Hynix Leverage Dynamics"
-git init
-git add .
-git commit -m "Add Hynix leverage dynamics web calculator"
-git branch -M main
-git remote add origin <你的仓库地址>
-git push -u origin main
-```
-
-然后在 GitHub 仓库中：
-
-1. 打开 `Settings` -> `Pages`
-2. `Build and deployment` 选择 `Deploy from a branch`
-3. Branch 选 `main`，Folder 选 `/ (root)`，保存
-4. 等待部署完成后，访问 `https://<你的用户名>.github.io/<仓库名>/`
+浏览器访问：`http://localhost:8080
