@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hynix Leverage Dynamics</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <p class="eyebrow">Hynix Leverage Dynamics</p>
+      <h1>7709 与正股 2x 对比计算器</h1>
+      <p class="subtitle">选择买入日期与截止日期（按当日收盘价）</p>
+    </header>
+
+    <section class="panel controls">
+      <div class="field">
+        <label for="startDate">买入日期</label>
+        <select id="startDate" aria-label="买入日期"></select>
+      </div>
+      <div class="field">
+        <label for="endDate">截止日期</label>
+        <select id="endDate" aria-label="截止日期"></select>
+      </div>
+      <button id="calcBtn" type="button">计算</button>
+    </section>
+
+    <section class="panel status" id="status">正在加载数据...</section>
+
+    <section class="panel result hidden" id="resultSection">
+      <div class="range-box">
+        <span class="range-label">日期区间</span>
+        <span class="range-value" id="rangeText"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>Start Price</th>
+              <th>End Price</th>
+              <th>期间涨跌幅</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>正股（SK hynix）</td>
+              <td id="stockStart"></td>
+              <td id="stockEnd"></td>
+              <td id="stockReturn"></td>
+            </tr>
+            <tr>
+              <td>正股 2x（线性）</td>
+              <td>-</td>
+              <td>-</td>
+              <td id="naive2xReturn"></td>
+            </tr>
+            <tr>
+              <td>严格两倍股（按正股每日 2x 复利）</td>
+              <td>-</td>
+              <td>-</td>
+              <td id="strict2xReturn"></td>
+            </tr>
+            <tr>
+              <td>7709（CSOP 2x）</td>
+              <td id="prodStart"></td>
+              <td id="prodEnd"></td>
+              <td id="prodReturn"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="delta-grid">
+        <article class="delta-card">
+          <p class="delta-title">严格两倍股 - 正股 2x 的损耗</p>
+          <p class="delta-value" id="strictMinusNaive"></p>
+        </article>
+        <article class="delta-card">
+          <p class="delta-title">7709 - 正股 2x 的损耗</p>
+          <p class="delta-value" id="prodMinusNaive"></p>
+        </article>
+        <article class="delta-card">
+          <p class="delta-title">7709 - 严格两倍股（南方基金导致的损耗）</p>
+          <p class="delta-value" id="prodMinusStrict"></p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
