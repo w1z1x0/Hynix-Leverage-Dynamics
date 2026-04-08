@@ -2,7 +2,10 @@ const state = {
   stockSeries: new Map(),
   productSeries: new Map(),
   stockDates: [],
-  commonDates: [],
+  productDates: [],
+  comparisonDates: [],
+  filledStockSeries: new Map(),
+  filledProductSeries: new Map(),
 };
 
 const el = {
@@ -152,16 +155,42 @@ function stockDatesInRange(startDate, endDate) {
   return state.stockDates.filter((d) => d >= startDate && d <= endDate);
 }
 
+function productDatesInRange(startDate, endDate) {
+  return state.productDates.filter((d) => d >= startDate && d <= endDate);
+}
+
+function comparisonDatesInRange(startDate, endDate) {
+  return state.comparisonDates.filter((d) => d >= startDate && d <= endDate);
+}
+
+function buildFilledSeries(rawSeries, rawDates, targetDates) {
+  const filled = new Map();
+  let sourceIndex = 0;
+  let lastPrice = NaN;
+
+  for (const targetDate of targetDates) {
+    while (sourceIndex < rawDates.length && rawDates[sourceIndex] <= targetDate) {
+      lastPrice = rawSeries.get(rawDates[sourceIndex]);
+      sourceIndex += 1;
+    }
+    if (Number.isFinite(lastPrice)) {
+      filled.set(targetDate, lastPrice);
+    }
+  }
+
+  return filled;
+}
+
 function calculateStrict2xReturn(startDate, endDate) {
-  const dates = stockDatesInRange(startDate, endDate);
+  const dates = comparisonDatesInRange(startDate, endDate);
   if (dates.length <= 1) {
     return 0;
   }
 
   let nav = 1;
   for (let i = 1; i < dates.length; i += 1) {
-    const prev = state.stockSeries.get(dates[i - 1]);
-    const current = state.stockSeries.get(dates[i]);
+    const prev = state.filledStockSeries.get(dates[i - 1]);
+    const current = state.filledStockSeries.get(dates[i]);
     const dailyReturn = current / prev - 1;
     nav *= 1 + 2 * dailyReturn;
   }
@@ -181,10 +210,16 @@ function computeAndRender() {
     return;
   }
 
-  const stockStart = state.stockSeries.get(startDate);
-  const stockEnd = state.stockSeries.get(endDate);
-  const productStart = state.productSeries.get(startDate);
-  const productEnd = state.productSeries.get(endDate);
+  const rangeDates = comparisonDatesInRange(startDate, endDate);
+  if (rangeDates.length < 2) {
+    el.status.textContent = "所选日期范围不足 2 个并集交易日，请重新选择。";
+    return;
+  }
+
+  const stockStart = state.filledStockSeries.get(startDate);
+  const stockEnd = state.filledStockSeries.get(endDate);
+  const productStart = state.filledProductSeries.get(startDate);
+  const productEnd = state.filledProductSeries.get(endDate);
 
   if (
     !Number.isFinite(stockStart) ||
@@ -192,7 +227,7 @@ function computeAndRender() {
     !Number.isFinite(productStart) ||
     !Number.isFinite(productEnd)
   ) {
-    el.status.textContent = "所选日期缺少价格数据，请重新选择。";
+    el.status.textContent = "所选日期缺少可填充的价格数据，请重新选择。";
     return;
   }
 
@@ -221,8 +256,10 @@ function computeAndRender() {
   setSignedText(el.prodMinusStrict, formatPct(productMinusStrict), productMinusStrict);
 
   const stockDays = stockDatesInRange(startDate, endDate).length;
-  const commonDays = state.commonDates.filter((d) => d >= startDate && d <= endDate).length;
-  el.status.textContent = `计算完成：正股交易日 ${stockDays} 天，交集交易日 ${commonDays} 天。`;
+  const productDays = productDatesInRange(startDate, endDate).length;
+  const unionDays = rangeDates.length;
+  el.status.textContent =
+    `计算完成：并集交易日 ${unionDays} 天，SK hynix 实际交易日 ${stockDays} 天，7709 实际交易日 ${productDays} 天。`;
   el.resultSection.classList.remove("hidden");
 }
 
@@ -238,13 +275,13 @@ function syncEndStart() {
   }
 }
 
-function populateDateSelectors(commonDates) {
-  const options = commonDates.map((d) => `<option value="${d}">${d}</option>`).join("");
+function populateDateSelectors(comparisonDates) {
+  const options = comparisonDates.map((d) => `<option value="${d}">${d}</option>`).join("");
   el.startDate.innerHTML = options;
   el.endDate.innerHTML = options;
 
-  el.startDate.value = commonDates[0];
-  el.endDate.value = commonDates[commonDates.length - 1];
+  el.startDate.value = comparisonDates[0];
+  el.endDate.value = comparisonDates[comparisonDates.length - 1];
 }
 
 async function loadData() {
@@ -277,19 +314,33 @@ async function loadData() {
   );
 
   state.stockDates = Array.from(state.stockSeries.keys()).sort();
-  state.commonDates = state.stockDates.filter((d) => state.productSeries.has(d));
+  state.productDates = Array.from(state.productSeries.keys()).sort();
 
-  if (state.commonDates.length < 2) {
-    throw new Error("两份数据的共同交易日不足 2 天，无法计算区间收益。");
+  const unionDates = Array.from(new Set([...state.stockDates, ...state.productDates])).sort();
+  const firstUsableDate = state.stockDates[0] > state.productDates[0] ? state.stockDates[0] : state.productDates[0];
+  state.comparisonDates = unionDates.filter((d) => d >= firstUsableDate);
+
+  state.filledStockSeries = buildFilledSeries(state.stockSeries, state.stockDates, state.comparisonDates);
+  state.filledProductSeries = buildFilledSeries(state.productSeries, state.productDates, state.comparisonDates);
+
+  if (state.comparisonDates.length < 2) {
+    throw new Error("两份数据的并集交易日不足 2 天，无法计算区间收益。");
   }
 
-  populateDateSelectors(state.commonDates);
+  if (
+    state.filledStockSeries.size !== state.comparisonDates.length ||
+    state.filledProductSeries.size !== state.comparisonDates.length
+  ) {
+    throw new Error("无法完成并集日期的前值填充，请检查 CSV 起始日期。");
+  }
+
+  populateDateSelectors(state.comparisonDates);
 }
 
 async function init() {
   try {
     await loadData();
-    el.status.textContent = `数据加载完成，共同交易日 ${state.commonDates.length} 天。`;
+    el.status.textContent = `数据加载完成，可比较并集交易日 ${state.comparisonDates.length} 天。`;
     computeAndRender();
   } catch (error) {
     el.status.textContent = `加载失败：${error.message}`;
