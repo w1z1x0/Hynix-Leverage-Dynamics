@@ -26,6 +26,23 @@ const el = {
   strictMinusNaive: document.getElementById("strictMinusNaive"),
   prodMinusNaive: document.getElementById("prodMinusNaive"),
   prodMinusStrict: document.getElementById("prodMinusStrict"),
+  performanceChart: document.getElementById("performanceChart"),
+};
+
+const chartConfig = {
+  width: 920,
+  height: 360,
+  padding: {
+    top: 22,
+    right: 62,
+    bottom: 44,
+    left: 58,
+  },
+  series: [
+    { key: "stock", label: "正股", color: "#245fdb" },
+    { key: "strict2x", label: "严格两倍做多", color: "#b45500" },
+    { key: "product", label: "7709", color: "#168455" },
+  ],
 };
 
 function normalizeDate(raw) {
@@ -197,6 +214,247 @@ function calculateStrict2xReturn(startDate, endDate) {
   return nav - 1;
 }
 
+function buildPerformanceSeries(startDate, endDate) {
+  const dates = comparisonDatesInRange(startDate, endDate);
+  if (dates.length === 0) {
+    return [];
+  }
+
+  const stockStart = state.filledStockSeries.get(startDate);
+  const productStart = state.filledProductSeries.get(startDate);
+  if (!Number.isFinite(stockStart) || !Number.isFinite(productStart)) {
+    return [];
+  }
+
+  let strict2xNav = 1;
+  return dates.map((date, index) => {
+    if (index > 0) {
+      const prevStock = state.filledStockSeries.get(dates[index - 1]);
+      const currentStock = state.filledStockSeries.get(date);
+      strict2xNav *= 1 + 2 * (currentStock / prevStock - 1);
+    }
+
+    const stockPrice = state.filledStockSeries.get(date);
+    const productPrice = state.filledProductSeries.get(date);
+    return {
+      date,
+      stock: (stockPrice / stockStart - 1) * 100,
+      strict2x: (strict2xNav - 1) * 100,
+      product: (productPrice / productStart - 1) * 100,
+    };
+  });
+}
+
+function getChartScale(points) {
+  const values = points.flatMap((point) => chartConfig.series.map((series) => point[series.key]));
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  if (rawMin === rawMax) {
+    return { min: rawMin - 5, max: rawMax + 5 };
+  }
+
+  const padding = Math.max((rawMax - rawMin) * 0.12, 2);
+  return {
+    min: rawMin - padding,
+    max: rawMax + padding,
+  };
+}
+
+function getChartTicks(min, max, count) {
+  const ticks = [];
+  if (count <= 1) return [min];
+
+  for (let i = 0; i < count; i += 1) {
+    ticks.push(min + ((max - min) * i) / (count - 1));
+  }
+  return ticks;
+}
+
+function pickDateTickIndexes(pointCount) {
+  if (pointCount <= 6) {
+    return Array.from({ length: pointCount }, (_, index) => index);
+  }
+
+  const indexes = new Set();
+  const lastIndex = pointCount - 1;
+  for (let i = 0; i < 6; i += 1) {
+    indexes.add(Math.round((lastIndex * i) / 5));
+  }
+  return Array.from(indexes).sort((a, b) => a - b);
+}
+
+function formatChartPct(value) {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(2)}%`;
+}
+
+function getNearestChartPointIndex(points, chartX, chartLeft, chartInnerWidth) {
+  if (points.length <= 1) return 0;
+
+  const ratio = (chartX - chartLeft) / chartInnerWidth;
+  const rawIndex = Math.round(ratio * (points.length - 1));
+  return Math.max(0, Math.min(points.length - 1, rawIndex));
+}
+
+function bindPerformanceChartHover(points, xFor, yFor, bounds) {
+  if (!el.performanceChart.querySelector) return;
+
+  const svg = el.performanceChart.querySelector("svg");
+  const hitbox = el.performanceChart.querySelector(".chart-hitbox");
+  const hoverLayer = el.performanceChart.querySelector(".chart-hover-layer");
+  if (!svg || !hitbox || !hoverLayer) return;
+
+  const hoverLine = hoverLayer.querySelector(".chart-hover-line");
+  const tooltip = hoverLayer.querySelector(".chart-tooltip");
+  const tooltipDate = hoverLayer.querySelector("[data-tooltip-date]");
+  const tooltipValues = new Map(
+    chartConfig.series.map((series) => [
+      series.key,
+      hoverLayer.querySelector(`[data-tooltip-value="${series.key}"]`),
+    ]),
+  );
+  const hoverDots = new Map(
+    chartConfig.series.map((series) => [
+      series.key,
+      hoverLayer.querySelector(`[data-hover-dot="${series.key}"]`),
+    ]),
+  );
+
+  const showPoint = (index) => {
+    const point = points[index];
+    const x = xFor(index);
+    hoverLayer.style.opacity = "1";
+    hoverLine.setAttribute("x1", x.toFixed(2));
+    hoverLine.setAttribute("x2", x.toFixed(2));
+
+    tooltipDate.textContent = point.date;
+    chartConfig.series.forEach((series) => {
+      const dot = hoverDots.get(series.key);
+      const valueNode = tooltipValues.get(series.key);
+      dot.setAttribute("cx", x.toFixed(2));
+      dot.setAttribute("cy", yFor(point[series.key]).toFixed(2));
+      valueNode.textContent = formatChartPct(point[series.key]);
+    });
+
+    const tooltipX = x > bounds.width - bounds.padding.right - 190 ? x - 190 : x + 12;
+    tooltip.setAttribute("transform", `translate(${tooltipX.toFixed(2)} ${bounds.padding.top + 8})`);
+  };
+
+  hitbox.addEventListener("mousemove", (event) => {
+    const rect = svg.getBoundingClientRect();
+    const chartX = ((event.clientX - rect.left) * bounds.width) / rect.width;
+    showPoint(getNearestChartPointIndex(points, chartX, bounds.padding.left, bounds.innerWidth));
+  });
+  hitbox.addEventListener("mouseleave", () => {
+    hoverLayer.style.opacity = "0";
+  });
+  hitbox.addEventListener("focus", () => showPoint(0));
+  hitbox.addEventListener("blur", () => {
+    hoverLayer.style.opacity = "0";
+  });
+}
+
+function renderPerformanceChart(points) {
+  if (!el.performanceChart) return;
+  if (points.length < 2) {
+    el.performanceChart.innerHTML = "<p class=\"empty-chart\">日期范围不足，无法绘制走势。</p>";
+    return;
+  }
+
+  const { width, height, padding } = chartConfig;
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const scale = getChartScale(points);
+  const xFor = (index) => padding.left + (innerWidth * index) / (points.length - 1);
+  const yFor = (value) => padding.top + ((scale.max - value) * innerHeight) / (scale.max - scale.min);
+  const yTicks = getChartTicks(scale.min, scale.max, 5);
+  const xTickIndexes = pickDateTickIndexes(points.length);
+
+  const grid = yTicks
+    .map((tick) => {
+      const y = yFor(tick);
+      return `
+        <line class="chart-grid" x1="${padding.left}" y1="${y.toFixed(2)}" x2="${width - padding.right}" y2="${y.toFixed(2)}"></line>
+        <text class="chart-axis-label" x="${padding.left - 10}" y="${(y + 4).toFixed(2)}" text-anchor="end">${tick.toFixed(0)}%</text>
+      `;
+    })
+    .join("");
+
+  const dateTicks = xTickIndexes
+    .map((index) => {
+      const x = xFor(index);
+      return `
+        <line class="chart-tick" x1="${x.toFixed(2)}" y1="${height - padding.bottom}" x2="${x.toFixed(2)}" y2="${height - padding.bottom + 6}"></line>
+        <text class="chart-axis-label" x="${x.toFixed(2)}" y="${height - 16}" text-anchor="middle">${points[index].date.slice(5)}</text>
+      `;
+    })
+    .join("");
+
+  const lines = chartConfig.series
+    .map((series) => {
+      const coordinates = points
+        .map((point, index) => `${xFor(index).toFixed(2)},${yFor(point[series.key]).toFixed(2)}`)
+        .join(" ");
+      const lastPoint = points[points.length - 1];
+      const labelX = width - padding.right + 10;
+      const labelY = yFor(lastPoint[series.key]);
+      return `
+        <polyline class="chart-line" points="${coordinates}" stroke="${series.color}"></polyline>
+        <circle class="chart-start-dot" cx="${padding.left}" cy="${yFor(0).toFixed(2)}" r="4" fill="${series.color}"></circle>
+        <circle class="chart-end-dot" cx="${xFor(points.length - 1).toFixed(2)}" cy="${labelY.toFixed(2)}" r="3.5" fill="${series.color}"></circle>
+        <text class="chart-line-label" x="${labelX}" y="${(labelY + 4).toFixed(2)}" fill="${series.color}">${series.label}</text>
+      `;
+    })
+    .join("");
+  const hoverDots = chartConfig.series
+    .map(
+      (series) => `
+        <circle class="chart-hover-dot" data-hover-dot="${series.key}" r="4.5" fill="${series.color}"></circle>
+      `,
+    )
+    .join("");
+  const tooltipRows = chartConfig.series
+    .map((series, index) => {
+      const y = 46 + index * 22;
+      return `
+        <text class="chart-tooltip-label" x="12" y="${y}" fill="${series.color}">${series.label}</text>
+        <text class="chart-tooltip-value" data-tooltip-value="${series.key}" x="170" y="${y}" text-anchor="end"></text>
+      `;
+    })
+    .join("");
+
+  el.performanceChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
+      <line class="chart-axis" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
+      <line class="chart-axis" x1="${padding.left}" y1="${height - padding.bottom}" x2="${width - padding.right}" y2="${height - padding.bottom}"></line>
+      ${grid}
+      ${dateTicks}
+      <line class="chart-baseline" x1="${padding.left}" y1="${yFor(0).toFixed(2)}" x2="${width - padding.right}" y2="${yFor(0).toFixed(2)}"></line>
+      <text class="chart-baseline-label" x="${padding.left - 10}" y="${(yFor(0) - 6).toFixed(2)}" text-anchor="end">0%</text>
+      ${lines}
+      <g class="chart-hover-layer" style="opacity: 0;">
+        <line class="chart-hover-line" x1="${padding.left}" y1="${padding.top}" x2="${padding.left}" y2="${height - padding.bottom}"></line>
+        ${hoverDots}
+        <g class="chart-tooltip" transform="translate(${padding.left + 12} ${padding.top + 8})">
+          <rect class="chart-tooltip-bg" width="182" height="116" rx="8"></rect>
+          <text class="chart-tooltip-date" data-tooltip-date x="12" y="24"></text>
+          ${tooltipRows}
+        </g>
+      </g>
+      <rect
+        class="chart-hitbox"
+        x="${padding.left}"
+        y="${padding.top}"
+        width="${innerWidth}"
+        height="${innerHeight}"
+        tabindex="0"
+        aria-label="移动鼠标查看各日期涨跌幅"
+      ></rect>
+    </svg>
+  `;
+  bindPerformanceChartHover(points, xFor, yFor, { width, padding, innerWidth });
+}
+
 function computeAndRender() {
   const startDate = el.startDate.value;
   const endDate = el.endDate.value;
@@ -254,6 +512,7 @@ function computeAndRender() {
   setSignedText(el.strictMinusNaive, formatPct(strictMinusNaive), strictMinusNaive);
   setSignedText(el.prodMinusNaive, formatPct(productMinusNaive), productMinusNaive);
   setSignedText(el.prodMinusStrict, formatPct(productMinusStrict), productMinusStrict);
+  renderPerformanceChart(buildPerformanceSeries(startDate, endDate));
 
   const stockDays = stockDatesInRange(startDate, endDate).length;
   const productDays = productDatesInRange(startDate, endDate).length;

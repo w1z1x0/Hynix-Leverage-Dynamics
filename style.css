@@ -152,6 +152,199 @@ button:hover {
   font-weight: 600;
 }
 
+.chart-block {
+  margin: 4px 0 16px;
+  padding: 12px;
+  border: 1px solid rgba(44, 91, 72, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.chart-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chart-head h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.chart-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.chart-legend i {
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.legend-stock {
+  background: #245fdb;
+}
+
+.legend-strict {
+  background: #b45500;
+}
+
+.legend-product {
+  background: #168455;
+}
+
+.chart-wrap {
+  width: 100%;
+  min-height: 260px;
+  overflow-x: auto;
+}
+
+.chart-wrap svg {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.chart-grid {
+  stroke: rgba(60, 94, 78, 0.16);
+  stroke-width: 1;
+}
+
+.chart-axis,
+.chart-tick {
+  stroke: rgba(60, 94, 78, 0.34);
+  stroke-width: 1;
+}
+
+.chart-baseline {
+  stroke: rgba(24, 34, 28, 0.32);
+  stroke-dasharray: 5 5;
+  stroke-width: 1;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-start-dot {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.5;
+}
+
+.chart-end-dot {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 1.5;
+}
+
+.chart-axis-label,
+.chart-baseline-label,
+.chart-line-label {
+  font-family: "IBM Plex Mono", "Noto Sans SC", monospace;
+  font-size: 12px;
+}
+
+.chart-axis-label {
+  fill: var(--muted);
+}
+
+.chart-baseline-label {
+  fill: var(--text);
+  font-weight: 700;
+}
+
+.chart-line-label {
+  font-weight: 700;
+}
+
+.chart-hover-layer {
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.chart-hover-line {
+  stroke: rgba(24, 34, 28, 0.42);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.chart-hover-dot {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.chart-hitbox {
+  fill: transparent;
+  cursor: crosshair;
+  outline: none;
+}
+
+.chart-hitbox:focus {
+  stroke: rgba(43, 111, 86, 0.36);
+  stroke-width: 2;
+}
+
+.chart-tooltip-bg {
+  fill: rgba(255, 255, 255, 0.94);
+  stroke: rgba(44, 91, 72, 0.22);
+  stroke-width: 1;
+  filter: drop-shadow(0 8px 16px rgba(31, 61, 46, 0.14));
+}
+
+.chart-tooltip-date,
+.chart-tooltip-label,
+.chart-tooltip-value {
+  font-family: "IBM Plex Mono", "Noto Sans SC", monospace;
+  font-size: 12px;
+}
+
+.chart-tooltip-date {
+  fill: var(--text);
+  font-weight: 700;
+}
+
+.chart-tooltip-label {
+  font-weight: 700;
+}
+
+.chart-tooltip-value {
+  fill: var(--text);
+  font-weight: 700;
+}
+
+.empty-chart {
+  margin: 0;
+  padding: 28px 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -219,6 +412,15 @@ tbody tr:last-child td {
 @media (max-width: 780px) {
   .controls {
     grid-template-columns: 1fr;
+  }
+
+  .chart-head {
+    display: block;
+  }
+
+  .chart-legend {
+    justify-content: flex-start;
+    margin-top: 8px;
   }
 
   h1 {
