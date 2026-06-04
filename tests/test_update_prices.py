@@ -12,7 +12,10 @@ def chart_payload():
         "chart": {
             "result": [
                 {
-                    "meta": {"timezone": "Asia/Hong_Kong"},
+                    "meta": {
+                        "timezone": "HKT",
+                        "exchangeTimezoneName": "Asia/Hong_Kong",
+                    },
                     "timestamp": [1776297600, 1776384000],
                     "indicators": {
                         "quote": [

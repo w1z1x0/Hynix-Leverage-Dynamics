@@ -118,7 +118,8 @@ def parse_yahoo_chart_rows(payload: dict[str, Any]) -> list[PriceRow]:
 
     quote = quotes[0]
     adjclose = (indicators.get("adjclose") or [{}])[0].get("adjclose") or quote.get("close")
-    timezone_name = result.get("meta", {}).get("timezone") or "UTC"
+    meta = result.get("meta", {})
+    timezone_name = meta.get("exchangeTimezoneName") or meta.get("timezone") or "UTC"
     market_tz = ZoneInfo(timezone_name)
 
     rows: list[PriceRow] = []
