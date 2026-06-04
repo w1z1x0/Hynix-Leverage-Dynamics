@@ -10,9 +10,25 @@
 ## 数据来源
 
 - `7709_price.csv`
-  - source: https://www.hkex.com.hk/Market-Data/Securities-Prices/Exchange-Traded-Products/Exchange-Traded-Products-Quote?sym=7709
+  - source: https://hk.finance.yahoo.com/quote/7709.HK/history/
 - `sk_price.csv`
   - source: https://hk.finance.yahoo.com/quote/000660.KS/history/
+
+## 自动更新
+
+- GitHub Actions 工作流：`.github/workflows/update-market-data.yml`
+- 运行时间：每个工作日 18:30（Asia/Shanghai），在港股和韩股收盘后运行。
+- 更新逻辑：运行 `scripts/update_prices.py` 拉取 Yahoo Finance 历史行情，更新 `7709_price.csv` 和 `sk_price.csv`。
+- 提交逻辑：如果两个 CSV 有变化，工作流会自动 commit 并 push 到 `main`；没有变化则跳过提交。
+- 手动触发：GitHub 仓库页面进入 Actions -> Update market data -> Run workflow。
+
+本地测试：
+
+```bash
+python -m pip install -r requirements.txt
+python -m pytest -q
+python scripts/update_prices.py --dry-run
+```
 
 ## 网页功能
 
